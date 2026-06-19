@@ -6,11 +6,29 @@ const ALIASES = { CPU: 'Procesador', GPU: 'Tarjeta de Video', RAM: 'Memoria RAM'
 
 const VACIO = { nombre: '', sku: '', categoria: 'CPU', grupo: '', precio: '', tienda: '', urlCyberpuerta: '', urlZegucom: '', notas: '' }
 
+function detectarCategoria(nombre) {
+  const n = nombre.toLowerCase()
+  if (n.includes('ryzen') || n.includes('core i') || n.includes('core ultra') || n.includes('threadripper') || n.includes('procesador')) return 'CPU'
+  if (n.includes('rtx') || n.includes('radeon') || n.includes('tarjeta de video') || n.includes('geforce') || n.includes('rx ')) return 'GPU'
+  if (n.includes('memoria') || n.includes('ram') || n.includes('ddr')) return 'RAM'
+  if (n.includes('ssd') && n.includes('m.2')) return 'SSD M.2'
+  if (n.includes('ssd') && (n.includes('sata') || n.includes('2.5'))) return 'SSD SATA'
+  if (n.includes('disco duro') || n.includes(' hdd')) return 'HDD'
+  if (n.includes('fuente') || n.includes('psu') || n.includes('watts') || n.includes(' w ')) return 'PSU'
+  if (n.includes('tarjeta madre') || n.includes('motherboard') || n.includes('b550') || n.includes('b650') || n.includes('z790') || n.includes('x670')) return 'Motherboard'
+  if (n.includes('gabinete') || n.includes('case') || n.includes('torre')) return 'Case'
+  if (n.includes('disipador') || n.includes('cooler') || n.includes('enfriamiento') || n.includes('ventilador')) return 'Cooler'
+  return 'Otro'
+}
+
 export default function Catalogo({ components, setComponents }) {
   const [editando, setEditando] = useState(null)
   const [form, setForm] = useState(VACIO)
   const [busqueda, setBusqueda] = useState('')
   const [abiertas, setAbiertas] = useState(() => new Set(CATEGORIAS))
+  const [cpQuery, setCpQuery] = useState('')
+  const [cpBuscando, setCpBuscando] = useState(false)
+  const [cpResultados, setCpResultados] = useState(null) // null = sin buscar, [] = sin resultados
 
   const abrirNuevo = () => { setForm(VACIO); setEditando('nuevo') }
   const abrirEditar = (c) => { setForm({ ...c, precio: String(c.precio) }); setEditando(c.id) }
@@ -51,6 +69,31 @@ export default function Catalogo({ components, setComponents }) {
     setComponents(components.filter(c => c.id !== id))
   }
 
+  const buscarEnCyberpuerta = async () => {
+    if (!cpQuery.trim()) return
+    setCpBuscando(true)
+    setCpResultados(null)
+    try {
+      const res = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: cpQuery }),
+      })
+      const data = await res.json()
+      setCpResultados(data.ok ? data.resultados : [])
+    } catch {
+      setCpResultados([])
+    } finally {
+      setCpBuscando(false)
+    }
+  }
+
+  const agregarDesdeCyberpuerta = (item) => {
+    const categoria = detectarCategoria(item.nombre)
+    setForm({ ...VACIO, nombre: item.nombre, sku: item.sku, categoria, urlCyberpuerta: item.url })
+    setEditando('nuevo')
+  }
+
 
   const filtrados = components
     .filter(c => !busqueda || c.nombre.toLowerCase().includes(busqueda.toLowerCase()) || (c.sku || '').toLowerCase().includes(busqueda.toLowerCase()))
@@ -79,6 +122,45 @@ export default function Catalogo({ components, setComponents }) {
         </div>
       </div>
 
+
+      {/* Buscador Cyberpuerta */}
+      <div style={{ background: '#fffbf0', border: '1px solid #f0c040', borderRadius: 8, padding: 16, marginBottom: 20 }}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: '#92600a', marginBottom: 8 }}>🔍 Buscar en Cyberpuerta</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            placeholder="Ej: RTX 5060, Ryzen 7 5700X, Kingston NV2..."
+            value={cpQuery}
+            onChange={e => setCpQuery(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && buscarEnCyberpuerta()}
+            style={{ ...inputStyle, flex: 1, marginTop: 0 }}
+          />
+          <button onClick={buscarEnCyberpuerta} disabled={cpBuscando} style={btnStyle('#e67e22')}>
+            {cpBuscando ? 'Buscando...' : 'Buscar'}
+          </button>
+        </div>
+
+        {cpResultados !== null && (
+          <div style={{ marginTop: 12 }}>
+            {cpResultados.length === 0 ? (
+              <p style={{ margin: 0, fontSize: 13, color: '#888' }}>Sin resultados. Probá con otro término.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {cpResultados.map((item, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #e0e0e0', borderRadius: 6, padding: '8px 12px' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <a href={item.url} target="_blank" rel="noreferrer" style={{ fontWeight: 600, fontSize: 13, color: '#1E3EBF', textDecoration: 'none' }}>
+                        {item.nombre}
+                      </a>
+                      {item.sku && <span style={{ marginLeft: 8, fontFamily: 'monospace', fontSize: 11, color: '#888' }}>{item.sku}</span>}
+                    </div>
+                    <button onClick={() => agregarDesdeCyberpuerta(item)} style={btnSmall('#2A6E2A')}>+ Agregar</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Búsqueda + controles */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
