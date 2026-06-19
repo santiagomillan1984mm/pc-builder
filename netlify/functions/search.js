@@ -4,6 +4,12 @@ const HEADERS = {
   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
 }
 
+// Extrae nombre legible desde la URL del producto
+function nombreDesdeUrl(path) {
+  const slug = path.split('/').pop().replace('.html', '')
+  return slug.replace(/-/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
 export default async (req) => {
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
 
@@ -16,37 +22,58 @@ export default async (req) => {
     if (!res.ok) return Response.json({ ok: false, error: 'No se pudo conectar a Cyberpuerta' }, { status: 502 })
 
     const html = await res.text()
-    const resultados = []
-
-    // Extraer bloques de producto — cada producto tiene una URL /Computo-Hardware/...html
-    // Patrón: href="URL" ... title="NOMBRE" ... SKU visible después
     const BASE = 'https://www.cyberpuerta.mx'
-
-    // Buscar links de producto con su título
-    const linkRegex = /href="(\/Computo-Hardware\/[^"]+\.html)"[^>]*title="([^"]+)"/g
-    let match
+    const resultados = []
     const seen = new Set()
 
-    while ((match = linkRegex.exec(html)) !== null) {
-      const path = match[1]
-      const nombre = match[2].trim()
+    // Extraer todos los hrefs de productos
+    const hrefRegex = /href="(\/Computo-Hardware\/[^"]+\.html)"/g
+    let m
+
+    while ((m = hrefRegex.exec(html)) !== null) {
+      const path = m[1]
       if (seen.has(path)) continue
+      // Ignorar links de breadcrumb (paths muy cortos sin nombre de producto)
+      const partes = path.split('/').filter(Boolean)
+      if (partes.length < 4) continue
       seen.add(path)
 
-      // Buscar SKU cerca de este link — tomar los 500 chars después del match
-      const ctx = html.substring(match.index, match.index + 800)
-      const skuMatch = ctx.match(/artNr[^>]*>([^<]{4,40})</) ||
-                       ctx.match(/>"([A-Z0-9][A-Z0-9\-\/\.]{3,39})"/) ||
-                       ctx.match(/class="[^"]*sku[^"]*"[^>]*>([^<]{3,40})</)
+      // Buscar el nombre en el texto cercano al link
+      // Intentar extraer texto entre > y < cerca de este href
+      const ctx = html.substring(m.index, m.index + 600)
 
-      const sku = skuMatch ? skuMatch[1].trim() : ''
+      // Buscar título como texto de link: >Texto</a> o title="Texto"
+      let nombre = ''
+      const titleMatch = ctx.match(/title="([^"]{10,200})"/)
+      if (titleMatch) {
+        nombre = titleMatch[1].trim()
+      } else {
+        // Buscar texto entre > y </a> o > y <
+        const textMatch = ctx.match(/>[^<>]{15,200}(?:<\/a>|<\/span>|<\/h)/)
+        if (textMatch) {
+          nombre = textMatch[0].replace(/^>/, '').replace(/<\/.+$/, '').trim()
+        }
+      }
+      // Fallback: derivar nombre desde URL
+      if (!nombre || nombre.length < 5) {
+        nombre = nombreDesdeUrl(path)
+      }
 
-      resultados.push({
-        nombre,
-        sku,
-        url: BASE + path,
-      })
+      // Buscar SKU cerca del link — buscar en un radio de 800 chars
+      const ctx2 = html.substring(Math.max(0, m.index - 100), m.index + 800)
+      let sku = ''
+      // Patrón SKU típico: mezcla de mayúsculas, números, guiones, barras
+      const skuPatterns = [
+        /artNr[^>]*?>([^<]{3,40})</,
+        /class="[^"]*artnum[^"]*"[^>]*>([^<]{3,40})</i,
+        />\s*((?:[A-Z0-9]{2,}[-\/][A-Z0-9]|[0-9]{3}-[0-9]{9,})[^\s<"]{0,30})\s*</,
+      ]
+      for (const pat of skuPatterns) {
+        const sk = ctx2.match(pat)
+        if (sk && sk[1].trim().length >= 4) { sku = sk[1].trim(); break }
+      }
 
+      resultados.push({ nombre, sku, url: BASE + path })
       if (resultados.length >= 20) break
     }
 
