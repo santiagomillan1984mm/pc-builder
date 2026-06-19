@@ -59,8 +59,8 @@ export default function App() {
     const resultados = []
 
     ;(async () => {
-      try {
-        for (let i = 0; i < conSku.length; i += LOTE) {
+      for (let i = 0; i < conSku.length; i += LOTE) {
+        try {
           const lote = conSku.slice(i, i + LOTE)
           const res = await fetch('/api/scrape', {
             method: 'POST',
@@ -69,16 +69,22 @@ export default function App() {
           })
           const data = await res.json()
           if (data.ok) resultados.push(...data.resultados)
+        } catch {
+          // lote fallido — continuar con el siguiente
         }
+      }
+      if (resultados.length > 0) {
         setComponentsState(prev => {
           const actualizados = aplicarPrecios(prev, resultados)
           saveComponents(actualizados)
           return actualizados
         })
-        const encontrados = resultados.filter(r => r.precioCyberpuerta || r.precioZegucom).length
+      }
+      const encontrados = resultados.filter(r => r.precioCyberpuerta || r.precioZegucom).length
+      if (encontrados > 0) {
         setAutoUpdateMsg(`✅ Precios actualizados — ${encontrados} de ${conSku.length} componentes`)
         setTimeout(() => setAutoUpdateMsg(null), 6000)
-      } catch {
+      } else {
         setAutoUpdateMsg('⚠️ No se pudieron actualizar los precios automáticamente')
         setTimeout(() => setAutoUpdateMsg(null), 8000)
       }

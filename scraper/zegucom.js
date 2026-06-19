@@ -3,7 +3,7 @@ const HEADERS = {
   'Accept-Language': 'es-MX,es;q=0.9',
 }
 
-const DELAY = 800
+const DELAY = 300
 const IVA = 1.16
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))

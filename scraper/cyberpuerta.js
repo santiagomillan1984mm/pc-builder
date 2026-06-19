@@ -1,5 +1,5 @@
-const DELAY_MIN = 1500
-const DELAY_JITTER = 1000
+const DELAY_MIN = 300
+const DELAY_JITTER = 200
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
