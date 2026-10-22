@@ -35,6 +35,7 @@ export default function App() {
         {pagina === 'nueva-cotizacion' && (
           <NuevaCotizacion
             components={components}
+            setComponents={setComponents}
             quotes={quotes}
             setQuotes={setQuotes}
             config={config}

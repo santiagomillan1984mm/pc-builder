@@ -3,10 +3,13 @@ import { v4 as uuid } from 'uuid'
 import { sugerirArmado, calcularTotal, formatMXN } from '../lib/pricing'
 import { generarPDF } from '../lib/exportPDF'
 import ModalContrato from '../components/ModalContrato'
+import BuscadorComponentes from '../components/BuscadorComponentes'
 import { generarTextoWhatsapp } from '../lib/exportWhatsapp'
 
 const ALIASES = { CPU: 'Procesador', GPU: 'Tarjeta de Video', RAM: 'Memoria RAM', Motherboard: 'Placa Madre', 'SSD M.2': 'SSD M.2 NVMe', 'SSD SATA': 'SSD SATA 2.5"', HDD: 'Disco Duro HDD', PSU: 'Fuente de Poder', Case: 'Gabinete', Cooler: 'Enfriamiento', Otro: 'Otro' }
 const CAT_ORDER = ['CPU','GPU','RAM','Motherboard','SSD M.2','SSD SATA','HDD','PSU','Case','Cooler','Otro']
+// El catálogo inicial usa 'Gabinete' y 'Disipador'
+const catDe = (c) => ({ Gabinete: 'Case', Disipador: 'Cooler' })[c.categoria] || (CAT_ORDER.includes(c.categoria) ? c.categoria : 'Otro')
 
 function urlCP(comp) {
   if (comp.urlCyberpuerta) return comp.urlCyberpuerta
@@ -56,7 +59,7 @@ function plantillas(quote, components, clienteNombre) {
   ]
 }
 
-export default function NuevaCotizacion({ components, quotes, setQuotes, config, setPagina, draft, setDraft, resetDraft, favoritos, setFavoritos, presets, setPresets }) {
+export default function NuevaCotizacion({ components, quotes, setQuotes, config, setPagina, draft, setDraft, resetDraft, favoritos, setFavoritos, presets, setPresets, setComponents }) {
   // State local de UI (no necesita persistir)
   const [categoriasExpandidas, setCategoriasExpandidas] = useState([])
   const [plantillaActiva, setPlantillaActiva] = useState(null)
@@ -96,8 +99,8 @@ export default function NuevaCotizacion({ components, quotes, setQuotes, config,
     setFavoritos(next)
   }
 
-  function agregarComponente(compId) {
-    const comp = components.find(c => c.id === compId)
+  function agregarComponente(compId, compDirecto) {
+    const comp = compDirecto || components.find(c => c.id === compId)
     if (!comp) return
     const existe = items.find(i => i.componenteId === compId)
     const precioConIva = comp.precio ? String(Math.round(comp.precio * 1.16)) : ''
@@ -106,6 +109,14 @@ export default function NuevaCotizacion({ components, quotes, setQuotes, config,
     } else {
       setItems(prev => [...prev, { componenteId: compId, cantidad: 1, precioConIva }])
     }
+  }
+
+  // Desde el buscador: si viene de la base de datos o escrito a mano, se guarda en el catálogo
+  function agregarDesdeBuscador(sel) {
+    if (sel.origen === 'catalogo') { agregarComponente(sel.id); return }
+    const nuevo = { id: uuid(), categoria: sel.categoria, grupo: sel.grupo || '', nombre: sel.nombre, sku: '', precio: 0, tienda: '', notas: sel.notas || '' }
+    if (setComponents) setComponents([...components, nuevo])
+    agregarComponente(nuevo.id, nuevo)
   }
 
   const quitarItem = (id) => setItems(prev => prev.filter(i => i.componenteId !== id))
@@ -189,7 +200,7 @@ export default function NuevaCotizacion({ components, quotes, setQuotes, config,
   const pls = quoteActual ? plantillas(quoteActual, components, clienteNombre) : []
 
   // Componentes por categoría
-  const compsPorCategoria = (cat) => components.filter(c => c.categoria === cat)
+  const compsPorCategoria = (cat) => components.filter(c => catDe(c) === cat)
   const itemIds = new Set(items.map(i => i.componenteId))
 
   return (
@@ -227,15 +238,17 @@ export default function NuevaCotizacion({ components, quotes, setQuotes, config,
           <span style={{ fontWeight: 400, color: '#6b7280', marginLeft: 8, fontSize: 12 }}>Click para agregar · ⭐ para marcar/desmarcar clásico</span>
         </h4>
 
+        <BuscadorComponentes components={components} onElegir={agregarDesdeBuscador} />
+
         {/* ── Sección Clásicos ── */}
         {favoritos && favoritos.size > 0 && (() => {
           const clasicosDisp = CAT_ORDER.flatMap(cat =>
-            components.filter(c => c.categoria === cat && favoritos.has(c.id))
+            components.filter(c => catDe(c) === cat && favoritos.has(c.id))
           )
           if (clasicosDisp.length === 0) return null
           const clasicosPorCat = CAT_ORDER.map(cat => ({
             cat,
-            comps: clasicosDisp.filter(c => c.categoria === cat),
+            comps: clasicosDisp.filter(c => catDe(c) === cat),
           })).filter(g => g.comps.length > 0)
           return (
             <div style={{ border: '2px solid #fbbf24', borderRadius: 8, overflow: 'hidden', marginBottom: 8 }}>
