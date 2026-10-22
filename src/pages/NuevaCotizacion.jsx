@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { v4 as uuid } from 'uuid'
 import { sugerirArmado, calcularTotal, formatMXN } from '../lib/pricing'
 import { generarPDF } from '../lib/exportPDF'
+import ModalContrato from '../components/ModalContrato'
 import { generarTextoWhatsapp } from '../lib/exportWhatsapp'
 
 const ALIASES = { CPU: 'Procesador', GPU: 'Tarjeta de Video', RAM: 'Memoria RAM', Motherboard: 'Placa Madre', 'SSD M.2': 'SSD M.2 NVMe', 'SSD SATA': 'SSD SATA 2.5"', HDD: 'Disco Duro HDD', PSU: 'Fuente de Poder', Case: 'Gabinete', Cooler: 'Enfriamiento', Otro: 'Otro' }
@@ -184,6 +185,7 @@ export default function NuevaCotizacion({ components, quotes, setQuotes, config,
   const hayItems = items.length > 0
   const hayTotal = subtotalConIva > 0
   const quoteActual = hayItems ? buildQuote() : null
+  const [contratoAbierto, setContratoAbierto] = useState(false)
   const pls = quoteActual ? plantillas(quoteActual, components, clienteNombre) : []
 
   // Componentes por categoría
@@ -192,6 +194,7 @@ export default function NuevaCotizacion({ components, quotes, setQuotes, config,
 
   return (
     <div style={{ padding: 24, maxWidth: 960, margin: '0 auto' }}>
+      {contratoAbierto && quoteActual && <ModalContrato quote={quoteActual} components={components} config={config} onCerrar={() => setContratoAbierto(false)} />}
       <h2 style={{ color: '#1E3EBF', marginBottom: 20 }}>Nueva Cotización</h2>
 
       {/* Datos básicos */}
@@ -479,6 +482,7 @@ export default function NuevaCotizacion({ components, quotes, setQuotes, config,
           <h4 style={{ margin: '0 0 14px', color: '#333', fontSize: 14, textTransform: 'uppercase', letterSpacing: 0.4 }}>Acciones</h4>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {hayTotal && <button onClick={handlePDF} style={btnStyle('#1E3EBF')}>📄 Descargar PDF</button>}
+            {hayTotal && <button onClick={() => setContratoAbierto(true)} style={btnStyle('#0f766e')}>📝 Contrato</button>}
             <button onClick={handleGuardar} style={btnStyle('#2A6E2A')}>💾 Guardar cotización</button>
             <button onClick={handleVendida} style={btnStyle('#e67e22')}>🤝 Guardar como vendida</button>
             <button onClick={() => {
