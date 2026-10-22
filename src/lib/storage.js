@@ -75,6 +75,12 @@ const DEFAULT_CONFIG = {
   armadoBasico: 8000,
   armadoEstandar: 5000,
   vigenciaDias: 7,
+  anticipoPct: 50,
+  diasPiezas: 7,
+  diasArmado: 3,
+  garantiaArmadoDias: 90,
+  diasRecoger: 30,
+  costoAlmacenaje: 20,
 }
 
 export function getConfig() {

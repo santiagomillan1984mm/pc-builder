@@ -33,6 +33,18 @@ export default function Configuracion({ config, setConfig }) {
         </label>
 
         <hr style={{ border: 'none', borderTop: '1px solid #eee' }} />
+        <p style={{ margin: 0, fontWeight: 700, color: '#333' }}>📝 Contrato de compra</p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {[['anticipoPct', 'Anticipo (%)', 50], ['diasPiezas', 'Días hábiles piezas', 7], ['diasArmado', 'Días hábiles armado', 3], ['garantiaArmadoDias', 'Garantía armado (días)', 90], ['diasRecoger', 'Días para recoger', 30], ['costoAlmacenaje', 'Almacenaje por día ($)', 20]].map(([k, l, def]) => (
+            <label key={k} style={labelStyle}>
+              {l}
+              <input type="number" value={form[k] ?? def} onChange={e => setForm({ ...form, [k]: e.target.value })} style={inputStyle} />
+            </label>
+          ))}
+        </div>
+        <span style={{ fontSize: 12, color: '#888' }}>La garantía del armado no puede ser menor a 90 días (Ley Federal de Protección al Consumidor, art. 77).</span>
+
+        <hr style={{ border: 'none', borderTop: '1px solid #eee' }} />
         <p style={{ margin: 0, fontWeight: 700, color: '#333' }}>Lógica de armado</p>
         <p style={{ margin: 0, fontSize: 13, color: '#666' }}>
           Si el subtotal de componentes (sin IVA) es menor al umbral, se sugiere el armado básico en vez del estándar.
